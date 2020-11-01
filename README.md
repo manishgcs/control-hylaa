@@ -24,7 +24,11 @@ This version of Hylaa runs in `python3` and requires a few other libraries that 
 
 The easiest way to get started with Hylaa is to run some of the examples. Once installed and setup, Hylaa models are just python source files you directly with `python3` in a terminal.
 
-Go to `examples/harmonic_oscillator` and run `ha.py` from the command line (`python ha.py`). This should create `plot.png` in the same folder, which will be an 2-d plot of the reachable set.  
+Go to `examples/harmonic_oscillator` and run `ha.py` from the command line (`python ha.py`). This should create `plot.png` in the same folder, which will be an 2-d plot of the reachable set.
+
+Or,
+
+Go to `examples/tmpc_model` and run `tmpc_model1.py` from the command line (`python3 tmpc_model1.py`). This should create `tmpc1_x_z.png` in the same folder, which will be an 2-d plot of the reachable set.  To check for the vertex containment in a reachable polytope, you will need to make changes in get_verts() in lpplot.py.
 
 The dynamics in this example are given as x' = **A**x, where **A** is the (potentially sparse) dynamics matrix. This is defined in the `define_ha` function in the `ha.py` source file.
 
