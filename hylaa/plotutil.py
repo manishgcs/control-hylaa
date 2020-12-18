@@ -688,6 +688,31 @@ class PlotManager(Freezable):
         if self.settings.plot_mode != PlotSettings.PLOT_NONE:
             self.add_reachable_poly(state)
 
+        # Timers.tic('PContain')
+        # if P1_lpi is None:
+        #     Timers.toc('PContain')
+        #     return
+        # h_equations = state.equations()
+        # # print(h_equations)
+        # h_equations_unique = []
+        # idx = 0
+        # while idx <= len(h_equations)-2:
+        #     h_equation1 = h_equations[idx]
+        #     h_equations_unique.append(h_equation1)
+        #     idy = idx + 1
+        #     while idy <= len(h_equations)-1:
+        #         h_equation2 = h_equations[idy]
+        #         if np.all(h_equation2 - h_equation1 == 0.0):
+        #             idy = idy + 1
+        #             continue
+        #         else:
+        #             break
+        #     idx = idy
+        # h_equations_unique = np.array(h_equations_unique)
+        # # print(h_equations_unique)
+        # check_poly_contain_efficient(P1_lpi=P1_lpi, P2_equations=h_equations_unique)
+        # Timers.toc('PContain')
+
     def add_reachable_poly(self, state):
         'add a reacahble poly to all subplots'
 
@@ -702,7 +727,7 @@ class PlotManager(Freezable):
 
             if verts is None:
                 pass # this happens during normal operation (nested deaggregation)
-                #print(f".#######plotutil plot was already deleted: {stateset}")
+                # print(f".#######plotutil plot was already deleted: {stateset}")
             else:
                 # delete it from the result object
                 if self.core.result.plot_data is not None:
@@ -877,7 +902,7 @@ class PlotManager(Freezable):
 
         Timers.toc("anim_iterator")
 
-    def compute_and_animate(self):
+    def compute_and_animate(self, p1_ah_polytope=None):
         'do the computation, plotting during the process'
 
         def next_pressed(_):
@@ -945,7 +970,7 @@ class PlotManager(Freezable):
             cid = self.fig.canvas.mpl_connect('button_press_event', on_click)
 
         if self.settings.plot_mode == PlotSettings.PLOT_IMAGE:
-            self.run_to_completion()
+            self.run_to_completion(p1_ah_polytope=p1_ah_polytope)
             self.save_image()
         else:
             interval = 1 if self.settings.plot_mode == PlotSettings.PLOT_VIDEO else 0
@@ -959,7 +984,7 @@ class PlotManager(Freezable):
             else:
                 plt.show()
 
-    def run_to_completion(self, compute_plot=True):
+    def run_to_completion(self, compute_plot=True, p1_ah_polytope=None):
         'run to completion, creating the plot at each step'
 
         Timers.tic("run_to_completion")
@@ -969,7 +994,7 @@ class PlotManager(Freezable):
                 for subplot in range(self.num_subplots):
                     self.shapes[subplot].set_cur_state(None)
 
-            self.core.do_step()
+            self.core.do_step(p1_ah_polytope=p1_ah_polytope)
 
             if compute_plot and self.core.aggdag.get_cur_state():
                 self.plot_current_state()

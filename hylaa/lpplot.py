@@ -13,7 +13,6 @@ from scipy.spatial import ConvexHull
 
 import hylaa.kamenev as kamenev
 from hylaa.timerutil import Timers
-from hylaa.lp_poly_v_feasible import Polytope, VFeasibilityInstance
 
 
 def pt_to_plot_xy(pt, xdim=0, ydim=1, cur_time=0.0):
@@ -51,44 +50,6 @@ def get_verts(lpi, xdim=0, ydim=1, plot_vecs=None, cur_time=0.0):
     construct and use 256 equally spaced vectors 
     '''
 
-    # print(lpi.get_full_constraints().toarray())
-    # print(lpi.get_rhs())
-    # print(lpi.get_types())
-    # print(lpi.get_full_constraints().toarray().shape, len(lpi.get_rhs().tolist()), len(lpi.get_types()))
-
-    # P1_tmpc_model = [[0.4, 5], [-0.2, 0.5], [-0.2, 0.5]] # for model 1
-    P1_tmpc_model = [[0.53, 10], [0.2, 0.6], [0.2, 0.6]]  # for model 2
-
-    dim_1 = P1_tmpc_model[0]
-    vertices = []
-    for idx in range(2):
-        dim_2 = P1_tmpc_model[1]
-        for idy in range(2):
-            dim_3 = P1_tmpc_model[2]
-            for idz in range(2):
-                vertex = [dim_1[idx], dim_2[idy], dim_3[idz]]
-                vertices.append(vertex)
-
-    # vertices = [[0.6, -0.2, -0.2], [0.6, -0.2, 0.5], [0.6, 0.5, -0.2], [0.6, 0.5, 0.5],
-    #             [5.0, -0.2, -0.2], [5.0, -0.2, 0.5], [5.0, 0.5, -0.2], [5.0, 0.5, 0.5]]
-    print(vertices)
-    polyt = Polytope(con_matrix=lpi.get_full_constraints(), rhs=lpi.get_rhs(), con_types=lpi.get_types())
-    polyt.polytopePrint()
-
-    f_instance = VFeasibilityInstance(polytope=polyt)
-    status = 0
-    for idx in range(len(vertices)):
-        vertex = vertices[idx]
-        status = f_instance.solve(vertex=vertex)
-        if status == -1:
-            status = idx+1
-            break
-    if status > 0:
-        print("P1 is not contained in P2 for vertex " + str(status))
-    elif status == 0:
-        print("P1 is contained in P2")
-
-    # print(lpi.write_lp_glpk('./glpk_constr.txt'))
     tol = 1e-9
     
     if plot_vecs is None:
@@ -160,6 +121,7 @@ def get_verts(lpi, xdim=0, ydim=1, plot_vecs=None, cur_time=0.0):
         # 2-d plot
         bboxw = bbox_widths(lpi, xdim, ydim)
 
+        # print(bboxw)
         # use bbox to determine acceptable accuracy... might be better to somehow do this
         epsilon = min(bboxw) / 1000.0
         dim_list = [xdim, ydim]
@@ -217,7 +179,7 @@ def bbox_widths(lpi, xdim, ydim):
         col = lpi.cur_vars_offset + dim
         min_dir = [1 if i == dim else 0 for i in range(dims)]
         max_dir = [-1 if i == dim else 0 for i in range(dims)]
-        
+
         min_val = lpi.minimize(direction_vec=min_dir, columns=[col])[0]
         max_val = lpi.minimize(direction_vec=max_dir, columns=[col])[0]
 

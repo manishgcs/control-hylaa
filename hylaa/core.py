@@ -18,6 +18,8 @@ from hylaa.util import Freezable
 from hylaa.lpinstance import LpInstance
 from hylaa import lputil
 from hylaa.result import PlotData
+from hylaa.h_ah_polytope import HPolytope, minkowski_sum
+
 
 class Core(Freezable):
     'main computation object. initialize and call run()'
@@ -211,12 +213,163 @@ class Core(Freezable):
 
         self.print_verbose("Step From {} / {} ({})".format(step_num, self.settings.num_steps, times))
 
-    def do_step_continuous_post(self):
+    # The most efficient as we don't need to compute the inverse of V. We use the basis matrix to
+    # directly compute x \in R^n, where  x = x_bar + XP_x. Here P_x is H * x \leq rhs
+    def minkowski_sum_direct_at_new_step(self, state):
+        new_basis_matrix = state.basis_matrix
+        input_effects_list = state.input_effects_list
+        cur_lpi = state.lpi
+        con_matrix = cur_lpi.get_full_constraints().toarray()
+        lpi_rhs = cur_lpi.get_rhs().tolist()
+        lpi_types = cur_lpi.get_types()
+        X_matrix = new_basis_matrix
+        input_steps = len(input_effects_list)
+        n_inputs = 0
+        for idx in range(input_steps):
+            input_effect = input_effects_list[idx]
+            n_inputs = input_effect.shape[1]
+            # print(input_effect, new_basis_matrix)
+            X_matrix = np.concatenate((X_matrix, input_effect), axis=1)
+
+        X_matrix_flattened = []
+        for idx in range(len(X_matrix)):
+            X_matrix_row = X_matrix[idx]
+            X_matrix_row = X_matrix_row.tolist()[0]
+            X_matrix_flattened.append(X_matrix_row)
+        X_matrix_flattened = np.array(X_matrix_flattened)
+        # print(np.array(X_matrix_flattened).shape)
+        X_matrix = X_matrix_flattened
+        dim1, dim2 = X_matrix.shape
+        # print(dim2-dim1, input_steps,n_inputs)
+        assert dim2-dim1 == input_steps * n_inputs
+        H_matrix = np.zeros((dim2*2, dim2), dtype=float)
+        h_rhs = np.zeros(dim2*2, dtype=float)
+        con_types = np.empty(dim2*2)
+        con_types.fill(3)
+        H_matrix[0:dim1*2, 0:dim1] = con_matrix[dim1:dim1*3, 0:dim1]
+        h_rhs[0:dim1*2] = lpi_rhs[dim1:dim1*3]
+        con_types[0:dim1*2] = lpi_types[dim1:dim1*3]
+        x1 = dim1*2
+        y1 = dim1
+        x2 = dim1*3 + dim1
+        y2 = dim1*dim1
+
+        for idx in range(input_steps):
+            H_matrix[x1:x1+n_inputs*2, y1:y1+n_inputs] = con_matrix[x2:x2+n_inputs*2, y2:y2+n_inputs]
+            h_rhs[x1:x1+n_inputs*2] = lpi_rhs[x2:x2+n_inputs*2]
+            con_types[x1:x1+n_inputs*2] = lpi_types[x2:x2+n_inputs*2]
+            x1 = x1+n_inputs*2
+            y1 = y1+n_inputs
+            x2 = x2+n_inputs*2
+            y2 = y2+n_inputs
+
+        cur_h_polytope = HPolytope(H_matrix=np.array(H_matrix), h_rhs=np.array(h_rhs), con_types=np.array(con_types))
+        cur_h_polytope.convert_to_std_h_polytope()
+        cur_ah_polytope = cur_h_polytope.convert_to_AH_polytope(T_matrix=X_matrix)
+        # cur_ah_polytope.print()
+        return cur_ah_polytope
+
+    # Working with input matrix of same dimension as system's dimensions. Breaking the basis matrix into two parts,
+    # and for both parts, converting star predicates into std basis. Requires inversion of V that's why for now
+    # I only tried it on square matrices i.e., with n inputs with n dimensional systems
+    def minkowski_sum_at_new_step_std_basis(self, state):
+        new_basis_matrix = state.basis_matrix
+        input_effects_list = state.input_effects_list
+        cur_lpi = state.lpi
+        dims = len(new_basis_matrix[0])
+        con_matrix = cur_lpi.get_full_constraints().toarray()
+        std_basis_init_pred_h_matrix = con_matrix[dims:dims*dims, 0:dims]
+        auto_h_matrix = np.matmul(std_basis_init_pred_h_matrix, np.linalg.inv(new_basis_matrix))
+        auto_rhs = cur_lpi.get_rhs().tolist()[dims:dims * dims]
+        auto_types = cur_lpi.get_types()[dims:dims * dims]
+        auto_h_polytope = HPolytope(H_matrix=np.array(auto_h_matrix), h_rhs=np.array(auto_rhs),
+                                    con_types=np.array(auto_types))
+        auto_h_polytope.convert_to_std_h_polytope()
+        auto_ah_polytope = auto_h_polytope.convert_to_AH_polytope()
+        # auto_h_polytope.print()
+
+        # cur_inp_h_matrix = auto_h_matrix.copy()
+        cur_new_input_effect = np.array(input_effects_list[len(input_effects_list) - 1])
+        # print("Here2 " + str(np.linalg.inv(cur_new_input_effect)))
+        dim1, dim2 = cur_new_input_effect.shape
+        cur_inp_h_matrix = np.matmul(std_basis_init_pred_h_matrix.copy(), np.linalg.inv(cur_new_input_effect))
+        # cur_inp_rhs = auto_rhs.copy()
+        cur_inp_rhs = cur_lpi.get_rhs().tolist()[-dim2 * 2:]
+        cur_inp_types = auto_types.copy()
+        cur_inp_h_polytope = HPolytope(H_matrix=np.array(cur_inp_h_matrix), h_rhs=np.array(cur_inp_rhs),
+                                       con_types=np.array(cur_inp_types))
+        cur_inp_h_polytope.convert_to_std_h_polytope()
+        cur_inp_ah_polytope = cur_inp_h_polytope.convert_to_AH_polytope()
+
+        input_ah_polytopes_list = state.input_ah_polytopes_list
+        if len(input_ah_polytopes_list) > 0:
+            print("Computing subsequent step ****")
+            prev_inp_ah_polytopes_effect = input_ah_polytopes_list[len(input_ah_polytopes_list) - 1]
+            inp_ah_polytope = minkowski_sum(cur_inp_ah_polytope, prev_inp_ah_polytopes_effect)
+        else:
+            print("Computing first step ****")
+            inp_ah_polytope = cur_inp_ah_polytope
+
+        assert inp_ah_polytope is not None
+        state.input_ah_polytopes_list.append(inp_ah_polytope)
+
+        new_ah_polytope = minkowski_sum(auto_ah_polytope, inp_ah_polytope)
+        # new_ah_polytope.print()
+        return new_ah_polytope
+
+    # old - not working. Taking entire basis matrix as is (by only considering alpha's for both auto and inputs)
+    def minkowski_sum_at_new_step_std_star_basis(self, state):
+        new_basis_matrix = state.basis_matrix
+        print("Here1 " + str(np.linalg.inv(new_basis_matrix)))
+        input_effects_list = state.input_effects_list
+        cur_lpi = state.lpi
+        dims = len(new_basis_matrix[0])
+        con_matrix = cur_lpi.get_full_constraints().toarray()
+        auto_h_matrix = con_matrix[0:dims*dims, 0:dims*2]
+        auto_rhs = cur_lpi.get_rhs().tolist()[0:dims*dims]
+        auto_types = cur_lpi.get_types()[0:dims*dims]
+        auto_h_polytope = HPolytope(H_matrix=np.array(auto_h_matrix), h_rhs=np.array(auto_rhs),
+                                    con_types=np.array(auto_types))
+        auto_h_polytope.convert_to_std_h_polytope()
+        auto_ah_polytope = auto_h_polytope.convert_to_AH_polytope()
+        # auto_h_polytope.print()
+
+        cur_inp_h_matrix = auto_h_matrix.copy()
+        cur_new_input_effect = np.array(input_effects_list[len(input_effects_list)-1])
+        print("Here2 " + str(np.linalg.inv(cur_new_input_effect)))
+        dim1, dim2 = cur_new_input_effect.shape
+        cur_inp_h_matrix[0:dim1, 0:dim2] = cur_new_input_effect
+        cur_inp_rhs = auto_rhs.copy()
+        cur_inp_rhs[-dim2*2:] = cur_lpi.get_rhs().tolist()[-dim2*2:]
+        cur_inp_types = auto_types.copy()
+        cur_inp_h_polytope = HPolytope(H_matrix=np.array(cur_inp_h_matrix), h_rhs=np.array(cur_inp_rhs),
+                                       con_types=np.array(cur_inp_types))
+        cur_inp_h_polytope.convert_to_std_h_polytope()
+        cur_inp_ah_polytope = cur_inp_h_polytope.convert_to_AH_polytope()
+
+        input_ah_polytopes_list = state.input_ah_polytopes_list
+        if len(input_ah_polytopes_list) > 0:
+            print("Computing subsequent step ****")
+            prev_inp_ah_polytopes_effect = input_ah_polytopes_list[len(input_ah_polytopes_list)-1]
+            inp_ah_polytope = minkowski_sum(cur_inp_ah_polytope, prev_inp_ah_polytopes_effect)
+        else:
+            print("Computing first step ****")
+            inp_ah_polytope = cur_inp_ah_polytope
+
+        assert inp_ah_polytope is not None
+        state.input_ah_polytopes_list.append(inp_ah_polytope)
+
+        new_ah_polytope = minkowski_sum(auto_ah_polytope, inp_ah_polytope)
+        # new_ah_polytope.print()
+        return new_ah_polytope
+
+    def do_step_continuous_post(self, p1_ah_polytope=None):
         '''do a step where it's part of a continuous post'''
 
         Timers.tic('do_step_continuous_post')
 
         cur_state = self.aggdag.get_cur_state()
+        # print(cur_state.basis_matrix, cur_state.input_effects_list, cur_state.lpi)
         self.print_current_step_time()
 
         if not self.is_finished():
@@ -235,8 +388,18 @@ class Core(Freezable):
                     self.print_normal("State left the invariant after {} steps".format(cur_state.cur_step_in_mode))
                     self.aggdag.cur_state_left_invariant()
                 else:
+                    # print("********* doing the step *******")
                     cur_state.step()
                     self.check_guards() # check guards here, before doing an invariant intersection
+                    Timers.tic("PContain")
+                    # new_ah_polytope = self.minkowski_sum_at_new_step_std_basis(cur_state)
+                    # P1_ah_polytope = convert_lpi_to_ah_polytope_std_basis(P1_lpi=P1_lpi)
+                    # ret_status = new_ah_polytope.check_inclusion_std_basis(P1_ah_polytope=P1_ah_polytope)
+                    new_ah_polytope = self.minkowski_sum_direct_at_new_step(cur_state)
+                    # P1_ah_polytope = convert_lpi_to_ah_polytope(P1_lpi=P1_lpi, dims=cur_state.basis_matrix.shape[0])
+                    ret_status = new_ah_polytope.check_inclusion(p1_ah_polytope=p1_ah_polytope)
+                    Timers.toc("PContain")
+                    # print("********* finished the step *******")
 
                     # if the current mode has zero dynamics, remove it here
                     if cur_state.mode.a_csr.nnz == 0 and self.settings.skip_zero_dynamics_modes:
@@ -285,22 +448,22 @@ class Core(Freezable):
 
         Timers.toc('do_step_pop')
 
-    def do_step(self):
+    def do_step(self, p1_ah_polytope=None):
         'do a single step of the computation'
 
         if self.doing_simulation:
             self.do_step_sim()
         else:
-            self.do_step_reach()
+            self.do_step_reach(p1_ah_polytope=p1_ah_polytope)
             
-    def do_step_reach(self):
+    def do_step_reach(self, p1_ah_polytope=None):
         'do a single reach step of the computation'
 
         Timers.tic('do_step')
 
         if not self.is_finished():
             if self.aggdag.get_cur_state():
-                self.do_step_continuous_post()
+                self.do_step_continuous_post(p1_ah_polytope=p1_ah_polytope)
                 self.continuous_steps += 1
             elif self.aggdag.deagg_man.doing_replay():
                 # in the middle of a deaggregation replay
@@ -313,8 +476,8 @@ class Core(Freezable):
                     self.aggdag.deagg_man.begin_replay(deagg_node)
                     self.aggdag.deagg_man.do_step_replay()
                 else:
-                    #print(".core popping, calling aggdag.save_viz()")
-                    #self.aggdag.save_viz()
+                    # print(".core popping, calling aggdag.save_viz()")
+                    # self.aggdag.save_viz()
             
                     # pop state off waiting list
                     self.do_step_pop()
@@ -379,15 +542,15 @@ class Core(Freezable):
 
         Timers.toc('setup')
 
-    def run_to_completion(self):
+    def run_to_completion(self, p1_ah_polytope=None):
         'run the model to completion (called by run() if not plot is desired)'
 
         if self.settings.plot.store_plot_result and self.result.plot_data is None:
             self.result.plot_data = PlotData(self.plotman.num_subplots)
 
-        self.plotman.run_to_completion(compute_plot=self.settings.plot.store_plot_result)
+        self.plotman.run_to_completion(compute_plot=self.settings.plot.store_plot_result, p1_ah_polytope=p1_ah_polytope)
 
-    def run(self, init_state_list):
+    def run(self, init_state_list, p1_ah_polytope=None):
         '''
         Run the computation (main entry point)
 
@@ -410,9 +573,9 @@ class Core(Freezable):
             self.result.plot_data = PlotData(self.plotman.num_subplots)
 
         if self.settings.plot.plot_mode == PlotSettings.PLOT_NONE:
-            self.run_to_completion()
+            self.run_to_completion(p1_ah_polytope=p1_ah_polytope)
         else:
-            self.plotman.compute_and_animate()
+            self.plotman.compute_and_animate(p1_ah_polytope=p1_ah_polytope)
 
         Timers.toc("total")
 
@@ -539,8 +702,8 @@ class Core(Freezable):
                     for transition in mode.transitions:
                         if transition.is_guard_true_for_point(pt):
 
-                            #print(f"guard was true for point {pt}, MAT:")
-                            #print(f"{transition.guard_csr.toarray()}\nRHS:\n{transition.guard_rhs}")
+                            # print(f"guard was true for point {pt}, MAT:")
+                            # print(f"{transition.guard_csr.toarray()}\nRHS:\n{transition.guard_rhs}")
                             
                             post_pt, post_mode = transition.apply_reset_for_point(pt)
 

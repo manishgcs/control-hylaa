@@ -45,6 +45,7 @@ class TimeElapseExpmMult(Freezable):
             self.one_step_matrix_exp = expm(self.a_csc * self.time_elapser.step_size)
         else:
             self.one_step_matrix_exp = self.a_csc
+            # print(self.one_step_matrix_exp.toarray())
         Timers.toc('expm')
 
         Timers.tic('toarray')
@@ -55,6 +56,7 @@ class TimeElapseExpmMult(Freezable):
 
             if self.discrete is True:
                 self.one_step_input_effects_matrix = self.b_csc.todense()
+                # print(self.one_step_input_effects_matrix)
             else:
                 self.one_step_input_effects_matrix = np.zeros(self.b_csc.shape, dtype=float)
 
@@ -126,6 +128,7 @@ class TimeElapseExpmMult(Freezable):
                     blocks = [self.cur_input_effects_matrix, prev_step_mat_exp]
                     self.cur_input_effects_matrix = np.concatenate(blocks, axis=1)
 
+            # print(self.cur_basis_matrix, self.cur_input_effects_matrix)
             Timers.toc('quick_step')
         else:
             Timers.tic('slow_step')

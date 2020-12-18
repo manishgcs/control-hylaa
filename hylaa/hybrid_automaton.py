@@ -167,8 +167,8 @@ class Mode(Freezable):
         # make sure the input constraints are feasible
         assert lputil.is_feasible(u_constraints_csr, u_constraints_rhs), "input constraints were infeasible"
 
-        #make sure there are not inputs that are fixed to a constant. This is for efficiency reasons. It is better 
-        #to add an affine variable to the a matrix and including this as part of A.
+        # make sure there are not inputs that are fixed to a constant. This is for efficiency reasons. It is better
+        # to add an affine variable to the a matrix and including this as part of A.
         
         num_inputs = b_csr.shape[1]
 
@@ -469,7 +469,7 @@ class HybridAutomaton(Freezable):
 
     def __init__(self, name='HybridAutomaton', discrete=False):
         self.name = name
-        self.modes = {} # map name -> mode
+        self.modes = {}  # map name -> mode
         self.transitions = []
 
         self.discrete = discrete

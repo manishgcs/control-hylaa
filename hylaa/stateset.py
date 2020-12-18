@@ -65,14 +65,17 @@ class StateSet(Freezable):
         # approximation model variables
         self.lgg_beta = None
 
-        #### plotting variables below ####
+        # plotting variables below ####
         self._verts = None # cached vertices at the current step
         self.assigned_plot_dim = False # set to True on first call to verts()
         self.xdim = None # set on first call to verts()
         self.ydim = None # set on first call to verts()
 
         # map of step number in mode -> list (for each subplot) of pairs: (matploatlib Path object list, index)
-        self.step_to_paths = {} 
+        self.step_to_paths = {}
+
+        self.input_ah_polytopes_list = []  # Minkowski sum with inputs up to current state in method
+        # minkowski_sum_at_new_step_std_basis in core.py. But the routine is not used anymore.
 
         self.freeze_attrs()
 
@@ -108,6 +111,9 @@ class StateSet(Freezable):
 
         Timers.tic("step")
 
+        # self.basis_matrix, input_effects_matrix = self.mode.time_elapse.get_basis_matrix(0)
+        # print(self.basis_matrix, input_effects_matrix, self.lpi)
+
         if step_in_mode is None:
             step_in_mode = self.cur_step_in_mode + 1
 
@@ -122,13 +128,9 @@ class StateSet(Freezable):
             self.basis_matrix, input_effects_matrix = self.mode.time_elapse.get_basis_matrix(step_in_mode)
             Timers.toc('get_bm')
 
-            # print(self.lpi.get_full_constraints().todense())
-            # print(self.lpi.get_rhs())
-
             Timers.tic('set_bm')
             lputil.set_basis_matrix(self.lpi, self.basis_matrix)
             Timers.toc('set_bm')
-            # print(self.lpi.get_full_constraints().todense(), self.basis_matrix)
 
             if input_effects_matrix is not None:
                 Timers.tic('input effects matrix')
@@ -143,12 +145,21 @@ class StateSet(Freezable):
                 lputil.add_input_effects_matrix(self.lpi, input_effects_matrix, self.mode, self.lgg_beta)
                 Timers.toc('input effects matrix')
 
-                #print(f".ss lp columns = {self.lpi.get_num_cols()}")
-
+                # print(f".ss lp columns = {self.lpi.get_num_cols()}")
             self.cur_step_in_mode += num_steps
             self.cur_steps_since_start[0] += num_steps
             self.cur_steps_since_start[1] += num_steps
             self._verts = None # cached vertices no longer valid
+            # print(self.basis_matrix, input_effects_matrix, self.lpi)
+
+        # if P1_lpi is not None:
+        #     if isinstance(P1_lpi, LpInstance):
+        #         check_poly_contain_efficient_w_proj(P1_lpi=P1_lpi, P2_lpi=self.lpi)
+        #     elif isinstance(P1_lpi, list):
+        #         P1_box = P1_lpi
+        #         check_poly_contain_brute_force(P1_box=P1_box, P2_lpi=self.lpi)
+        #     else:
+        #         print("Provide a correct type for P1")
         Timers.toc("step")
 
     def verts(self, plotman, subplot=0):
@@ -184,8 +195,8 @@ class StateSet(Freezable):
                             self.mode.name)
                         self.ydim[i] = self.ydim[i][self.mode.name]
 
-            self._verts[subplot] = lpplot.get_verts(self.lpi, xdim=self.xdim[subplot], ydim=self.ydim[subplot], \
-                                           plot_vecs=plotman.plot_vec_list[subplot], cur_time=time_interval)
+            self._verts[subplot] = lpplot.get_verts(self.lpi, xdim=self.xdim[subplot], ydim=self.ydim[subplot],
+                                                    plot_vecs=plotman.plot_vec_list[subplot], cur_time=time_interval)
             
             assert self._verts[subplot] is not None, "verts() was unsat"
             
