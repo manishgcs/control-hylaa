@@ -656,7 +656,7 @@ class PlotManager(Freezable):
 
             self.core.result.sim_lines[i].append(line)
 
-    def plot_current_state(self):
+    def plot_current_state(self, matlab_file=None):
         '''
         plot the current StateSet according to the plot settings.
         '''
@@ -683,7 +683,14 @@ class PlotManager(Freezable):
 
                 if self.settings.label[subplot].axes_limits is None:
                     self.update_axis_limits(verts, subplot)
+                # print(verts_list)
 
+                if matlab_file is not None:
+                    vertices = verts_list[0]
+                    matlab_file.write("[")
+                    for vertex in vertices:
+                        matlab_file.write(str(vertex[0]) + ", " + str(vertex[1]) + ";")
+                    matlab_file.write("]\n")
         # finally, add a reachable poly for the current state
         if self.settings.plot_mode != PlotSettings.PLOT_NONE:
             self.add_reachable_poly(state)
@@ -763,7 +770,7 @@ class PlotManager(Freezable):
 
                 for state in states:
                     if isinstance(state, list):
-                        verts = state[subplot] # list of vertices
+                        verts = state[subplot]  # list of vertices
                         verts_list.append(verts)
                     else:
                         verts = state.verts(self, subplot=subplot)
@@ -989,6 +996,8 @@ class PlotManager(Freezable):
 
         Timers.tic("run_to_completion")
 
+        matlab_f = open("reach-set.m", "w")
+
         while not self.core.is_finished():
             if compute_plot and self.shapes is not None:
                 for subplot in range(self.num_subplots):
@@ -997,11 +1006,12 @@ class PlotManager(Freezable):
             self.core.do_step(p1_ah_polytope=p1_ah_polytope)
 
             if compute_plot and self.core.aggdag.get_cur_state():
-                self.plot_current_state()
+                self.plot_current_state(matlab_f)
 
             if self.core.sim_states is not None:
                 self.plot_current_sim()
 
+        matlab_f.close()
         Timers.toc("run_to_completion")
 
     def save_video(self):

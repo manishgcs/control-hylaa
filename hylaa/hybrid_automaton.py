@@ -325,10 +325,10 @@ class Transition(Freezable):
 
     def set_guard(self, guard_csr, guard_rhs):
         '''set the guard'''
-        
+
         if not isinstance(guard_csr, csr_matrix):
             guard_csr = csr_matrix(guard_csr, dtype=float)
-            
+
         if not isinstance(guard_rhs, np.ndarray):
             guard_rhs = np.array(guard_rhs, dtype=float)
         
@@ -423,6 +423,8 @@ class Transition(Freezable):
         rv = None
         all_sat = True
 
+        # print(" ************** Inside guard ************* ")
+        # print(self.guard_csr, self.guard_rhs)
         for i, row in enumerate(self.guard_csr):
             # row is csr_matrix of a single row
             
@@ -430,6 +432,8 @@ class Transition(Freezable):
 
             columns = [lpi.cur_vars_offset + i for i in row.indices]
 
+            # print(i, row, row.indices)
+            # print(columns, lpi.cur_vars_offset)
             result = lpi.minimize(columns=columns, fail_on_unsat=False)
 
             # sometimes, changing the objective function makes lp infeasible (due to numerical precision issues)
@@ -454,6 +458,7 @@ class Transition(Freezable):
             if t_lpi.is_feasible():
                 rv = t_lpi
 
+        # print(" ************** Leaving guard ************* ")
         return rv
 
     def __str__(self):

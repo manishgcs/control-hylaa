@@ -19,6 +19,7 @@ from hylaa.lpinstance import LpInstance
 from hylaa import lputil
 from hylaa.result import PlotData
 from hylaa.h_ah_polytope import HPolytope, minkowski_sum
+from farkas_central.star_data import LinearPredicate, StarData
 
 
 class Core(Freezable):
@@ -54,6 +55,9 @@ class Core(Freezable):
         self.sim_basis_matrix = None # one-step basis matrix in current mode
         self.sim_should_try_guards = None # False for the first step unless urgent_guards is True
         self.sim_took_transition = None  # list of booleans for each sim
+        self.error_stars = []
+        self.non_error_stars = []
+        self.errorset_preds = None
 
         # make random number generation (for example, to find orthogonal directions) deterministic
         np.random.seed(hylaa_settings.random_seed)
@@ -63,6 +67,21 @@ class Core(Freezable):
         LpInstance.print_debug = self.print_debug
 
         self.freeze_attrs()
+
+    def get_error_stars(self):
+        return self.error_stars
+
+    def get_non_error_stars(self):
+        return self.non_error_stars
+
+    def set_errorset_preds(self, error_transition):
+        pred_vector = error_transition.guard_csr.todense().tolist()[0]
+        pred_rhs = error_transition.guard_rhs[0]
+        # print(pred_vector, pred_rhs)
+        self.errorset_preds = [LinearPredicate(pred_vector, pred_rhs)]
+
+    def get_errorset_preds(self):
+        return self.errorset_preds
 
     def print_normal(self, msg):
         'print function for STDOUT_NORMAL and above'
@@ -122,7 +141,6 @@ class Core(Freezable):
             self.print_normal(f"Unsafe Mode (concrete) Reached at Step: {step_num} / " + \
                               f"{self.settings.num_steps}, time {times}")
 
-
             if self.settings.make_counterexample and not self.result.counterexample:
                 self.print_verbose("Reached concrete error state; making concrete counter-example")
                 self.result.counterexample = make_counterexample(self.hybrid_automaton, state, t, t_lpi)
@@ -136,7 +154,7 @@ class Core(Freezable):
         Timers.tic("check_guards")
 
         cur_state = self.aggdag.get_cur_state()
-
+        cur_step = cur_state.cur_steps_since_start.copy()
         for t in cur_state.mode.transitions:
             t_lpi = t.get_guard_intersection(cur_state.lpi)
 
@@ -144,12 +162,24 @@ class Core(Freezable):
                 if t.to_mode.is_error():
                     self.error_reached(cur_state, t, t_lpi)
 
+                    # step_in_mode = cur_state.cur_step_in_mode
+                    # basis_matrix, input_effects_matrix = cur_state.mode.time_elapse.get_basis_matrix(step_in_mode)
+                    # print(basis_matrix, input_effects_matrix, cur_state.lpi)
+                    # print(cur_state.basis_matrix, cur_state.input_effects_list)
+
+                    if cur_state.input_effects_list is None:
+                        self.error_stars.append(StarData(cur_step, cur_state.lpi.clone(), np.copy(cur_state.basis_matrix)))
+                    else:
+                        self.error_stars.append(StarData(cur_step, cur_state.lpi.clone(), np.copy(cur_state.basis_matrix), np.copy(cur_state.input_effects_list)))
+                    # print(np.copy(cur_state.basis_matrix))
+                    if self.errorset_preds is None:
+                        self.set_errorset_preds(t)
+
                     if self.settings.stop_on_aggregated_error:
                         break
 
                     if cur_state.is_concrete and self.settings.stop_on_concrete_error:
                         break
-                
                 self.aggdag.add_transition_successor(t, t_lpi)
 
                 self.print_verbose(f"Took transition {t} at steps {cur_state.cur_steps_since_start}")
@@ -161,6 +191,10 @@ class Core(Freezable):
                         self.took_tt_transition = True
                     else:
                         self.print_verbose("Transition was NOT taken as time-triggered, due to runtime checks")
+
+            else:
+                self.non_error_stars.append(StarData(cur_step, cur_state.lpi.clone(), np.copy(cur_state.basis_matrix),
+                                                     np.copy(cur_state.input_effects_list)))
 
         Timers.toc("check_guards")
 
@@ -370,7 +404,7 @@ class Core(Freezable):
 
         cur_state = self.aggdag.get_cur_state()
         # print(cur_state.basis_matrix, cur_state.input_effects_list, cur_state.lpi)
-        self.print_current_step_time()
+        # self.print_current_step_time()
 
         if not self.is_finished():
             if cur_state.cur_steps_since_start[0] >= self.settings.num_steps:
@@ -390,14 +424,16 @@ class Core(Freezable):
                 else:
                     # print("********* doing the step *******")
                     cur_state.step()
-                    self.check_guards() # check guards here, before doing an invariant intersection
+                    self.check_guards()  # check guards here, before doing an invariant intersection
                     Timers.tic("PContain")
                     # new_ah_polytope = self.minkowski_sum_at_new_step_std_basis(cur_state)
                     # P1_ah_polytope = convert_lpi_to_ah_polytope_std_basis(P1_lpi=P1_lpi)
                     # ret_status = new_ah_polytope.check_inclusion_std_basis(P1_ah_polytope=P1_ah_polytope)
-                    new_ah_polytope = self.minkowski_sum_direct_at_new_step(cur_state)
+
+                    # Uncomment 1st and 3rd lines for PContain
+                    # new_ah_polytope = self.minkowski_sum_direct_at_new_step(cur_state)
                     # P1_ah_polytope = convert_lpi_to_ah_polytope(P1_lpi=P1_lpi, dims=cur_state.basis_matrix.shape[0])
-                    ret_status = new_ah_polytope.check_inclusion(p1_ah_polytope=p1_ah_polytope)
+                    # ret_status = new_ah_polytope.check_inclusion(p1_ah_polytope=p1_ah_polytope)
                     Timers.toc("PContain")
                     # print("********* finished the step *******")
 

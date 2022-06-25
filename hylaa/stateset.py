@@ -111,11 +111,11 @@ class StateSet(Freezable):
 
         Timers.tic("step")
 
-        # self.basis_matrix, input_effects_matrix = self.mode.time_elapse.get_basis_matrix(0)
-        # print(self.basis_matrix, input_effects_matrix, self.lpi)
-
         if step_in_mode is None:
             step_in_mode = self.cur_step_in_mode + 1
+
+        # self.basis_matrix, input_effects_matrix = self.mode.time_elapse.get_basis_matrix(step_in_mode)
+        # print(self.basis_matrix, input_effects_matrix, self.lpi)
 
         num_steps = step_in_mode - self.cur_step_in_mode
 
