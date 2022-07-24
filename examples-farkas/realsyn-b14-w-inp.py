@@ -115,7 +115,7 @@ def run_hylaa():
 
     bdd_ce_object = BDD4CE(error_states, usafeset_preds, equ_run=True, smt_mip='mip')
     # #
-    bdd_graphs = bdd_ce_object.create_bdd_w_level_merge(level_merge=0, order='default')
+    bdd_graphs = bdd_ce_object.create_bdd_w_level_merge(level_merge=0, order='random')
     valid_exps, invalid_exps = bdd_graphs[0].generate_expressions()
     print(len(valid_exps), len(invalid_exps))
     Timers.toc("BDD Construction")

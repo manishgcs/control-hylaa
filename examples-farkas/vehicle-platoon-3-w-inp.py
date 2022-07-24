@@ -37,15 +37,15 @@ def define_ha():
     mode = ha.new_mode('mode')
     mode.set_dynamics(a_csr)
 
-    b_mat = [[1], [1], [1], [1], [1], [1], [1], [1], [1]]
-    b_constraints = [[1], [-1]]
-    b_rhs = [0.01, 0.01]
+    # b_mat = [[1], [1], [1], [1], [1], [1], [1], [1], [1]]
+    # b_constraints = [[1], [-1]]
+    # b_rhs = [0.01, 0.01]
 
     # b_mat = [[1, 0], [1, 0], [0, 1], [1, 0], [1, 0], [0, 1], [0, 1], [1, 0]]
     # b_constraints = [[1, 0], [-1, 0], [0, 1], [0, -1]]
     # b_rhs = [0.1, 0.1, 0.2, 0.2]
 
-    mode.set_inputs(b_mat, b_constraints, b_rhs, allow_constants=False)
+    # mode.set_inputs(b_mat, b_constraints, b_rhs, allow_constants=False)
 
     error = ha.new_mode('error')
 

@@ -68,11 +68,11 @@ def define_ha():
     # b_constraints = [[1], [-1]]
     # b_rhs = [0.2, 0.2]
 
-    b_mat = [[1, 0], [1, 1], [0, 1], [1, 0], [1, 1], [0, 1], [0, 1], [1, 0], [1, 1], [0, 1], [0, 1], [1, 0]]
-    b_constraints = [[1, 0], [-1, 0], [0, 1], [0, -1]]
-    b_rhs = [0.1, 0.1, 0.1, 0.1]
+    # b_mat = [[1, 0], [1, 1], [0, 1], [1, 0], [1, 1], [0, 1], [0, 1], [1, 0], [1, 1], [0, 1], [0, 1], [1, 0]]
+    # b_constraints = [[1, 0], [-1, 0], [0, 1], [0, -1]]
+    # b_rhs = [0.1, 0.1, 0.1, 0.1]
 
-    mode.set_inputs(b_mat, b_constraints, b_rhs, allow_constants=False)
+    # mode.set_inputs(b_mat, b_constraints, b_rhs, allow_constants=False)
 
     error = ha.new_mode('error')
 

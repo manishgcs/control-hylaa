@@ -20,7 +20,6 @@ def define_ha():
                          [0, 0, 0.8870, 0.0089],
                          [0, 0, 0.0089, 0.8870]], dtype=float)
 
-    # exp 1
     b_matrix = np.array([[1, 0],
                          [0, 0],
                          [1, 0],
@@ -113,7 +112,7 @@ def run_hylaa():
     Timers.tic("BDD Construction")
     process_stars(error_states)
 
-    bdd_ce_object = BDD4CE(error_states, usafeset_preds, equ_run=True, smt_mip='mip')
+    bdd_ce_object = BDD4CE(error_states, usafeset_preds, equ_run=False, smt_mip='mip')
     # #
     bdd_graphs = bdd_ce_object.create_bdd_w_level_merge(level_merge=0, order='default')
     valid_exps, invalid_exps = bdd_graphs[0].generate_expressions()

@@ -154,6 +154,7 @@ class Core(Freezable):
         Timers.tic("check_guards")
 
         cur_state = self.aggdag.get_cur_state()
+        # print(cur_state.lpi)
         cur_step = cur_state.cur_steps_since_start.copy()
         for t in cur_state.mode.transitions:
             t_lpi = t.get_guard_intersection(cur_state.lpi)

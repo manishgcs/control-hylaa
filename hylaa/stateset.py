@@ -126,6 +126,7 @@ class StateSet(Freezable):
         if num_steps > 0:
             Timers.tic('get_bm')
             self.basis_matrix, input_effects_matrix = self.mode.time_elapse.get_basis_matrix(step_in_mode)
+            # print(self.basis_matrix, input_effects_matrix)
             Timers.toc('get_bm')
 
             Timers.tic('set_bm')

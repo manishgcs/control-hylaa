@@ -8,6 +8,9 @@ from hylaa.settings import HylaaSettings, PlotSettings
 from hylaa.core import Core
 from hylaa.stateset import StateSet
 from hylaa import lputil
+from farkas_central.process_stars import process_stars
+from farkas_central.bdd4Ce import BDD4CE
+from hylaa.timerutil import Timers
 
 
 def define_ha():
@@ -21,11 +24,21 @@ def define_ha():
     mode = ha.new_mode('mode')
     mode.set_dynamics(a_csr)
 
-    b_mat = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
-    b_constraints = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]
-    b_rhs = [0.0, -0.0, 0.1, -0.1, 0.03, -0.03]
+    # b_mat = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+    # b_constraints = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]
+    # b_rhs = [0.0, -0.0, 0.1, -0.1, 0.03, -0.03]
+
+    b_mat = [[0, 0], [1, 0], [0, 1]]
+    b_constraints = [[1, 0], [-1, 0], [0, 1], [0, -1]]
+    b_rhs = [0.1, -0.1, 0.1, -0.1]
 
     mode.set_inputs(b_mat, b_constraints, b_rhs, allow_constants=True)
+
+    error = ha.new_mode('error')
+
+    trans = ha.new_transition(mode, error)
+    # y >= 0.4
+    trans.set_guard([[0, -1, 0], ], [-0.5, ])
 
     return ha
 
@@ -46,7 +59,7 @@ def define_settings():
     'get the hylaa settings object'
 
     step = 0.6
-    max_time = 12
+    max_time = 9
     settings = HylaaSettings(step, max_time)
 
     plot_settings = settings.plot
@@ -73,8 +86,23 @@ def run_hylaa():
     ha = define_ha()
     settings = define_settings()
     init_states = make_init(ha)
+    core = Core(ha, settings)
+    core.run(init_states)
+    error_states = core.get_error_stars()  # error states are of type StarData
+    print(" no of error states: " + str(len(error_states)))
 
-    Core(ha, settings).run(init_states)
+    usafeset_preds = core.get_errorset_preds()
+
+    Timers.tic("BDD Construction")
+    process_stars(error_states)
+
+    bdd_ce_object = BDD4CE(error_states, usafeset_preds, equ_run=True, smt_mip='mip')
+    bdd_graphs = bdd_ce_object.create_bdd_w_level_merge(level_merge=0, order='mid-order')
+    valid_exps, invalid_exps = bdd_graphs[0].generate_expressions()
+    print(len(valid_exps), len(invalid_exps))
+    # print(valid_exps)
+    Timers.toc("BDD Construction")
+    Timers.print_stats()
 
 
 if __name__ == '__main__':
