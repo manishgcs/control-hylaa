@@ -20,8 +20,11 @@ Hylaa is released under the GPL v3 license (see the LICENSE file). Earlier versi
 
 This version of Hylaa runs in `python3` and requires a few other libraries that you can install with `pip3`, the python package manager. You must also set your `PYTHONPATH` environment variable so that it knows where the hylaa source is located. There is a `Dockerfile` in this repository which is used as part of our continuous integration framework that has step by step commands for installing the necessary packages and dependencies. This serves as the installation documentation, as it's always up to date.
 
-* One can also create a virtual environment dedicated to running Hylaa. 
+* One can also create a virtual environment dedicated to running Hylaa.  To locate the list of virtualenvs, run below command.
 
+```commandline
+locate -b '\activate' | grep "/home"
+```
 ```
 virutalenv control-hylaa
 source control-hylaa/bin/activate
@@ -39,6 +42,8 @@ pip3 install scipy
 pip3 install swiglpk
 pip3 install sympy
 pip3 install termcolor
+pip3 install gurobipy
+pip3 install z3
 ```
 
 In order to compute complete characterization of counterexamples, you would need GUROBI (https://www.gurobi.com/). Once Gurobi is install,
