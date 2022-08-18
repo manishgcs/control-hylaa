@@ -15,23 +15,31 @@ from farkas_central.control_utils import get_input
 def define_ha():
     '''make the hybrid automaton'''
 
-    a_matrix = np.array([[0, 1, 0, 0, 0, 0, 0, 0],
-                         [0, 0, 0, 0, 0, 0, 0, 0],
-                         [0, 0, 0, 1, 0, 0, 0, 0],
-                         [0, 0, 0, 0, 0, 0, 0, 0],
-                         [0, 0, 0, 0, 0, 1, 0, 0],
-                         [0, 0, 0, 0, 0, 0, 0, 0],
-                         [0, 0, 0, 0, 0, 0, 0, 1],
-                         [0, 0, 0, 0, 0, 0, 0, 0]], dtype=float)
+    a_matrix = np.array([[0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                         [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+                         [0, 0, -1.2, 0.1, 0, 0, 0, 0, 0, 0, 0, 0],
+                         [0, 0, 0.1, -1.2, 0, 0, 0, 0, 0, 0, 0, 0],
+                         [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
+                         [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0],
+                         [0, 0, 0, 0, 0, 0, -1.2, 0.1, 0, 0, 0, 0],
+                         [0, 0, 0, 0, 0, 0, 0.1, -1.2, 0, 0, 0, 0],
+                         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+                         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+                         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1.2, 0.1],
+                         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.1, -1.2]], dtype=float)
 
-    b_matrix = np.array([[0, 0, 0, 0],
-                         [1, 0, 0, 0],
-                         [0, 0, 0, 0],
-                         [1, -1, 0, 0],
-                         [0, 0, 0, 0],
-                         [0, 1, -1, 0],
-                         [0, 0, 0, 0],
-                         [0, 0, 1, -1]], dtype=float)
+    b_matrix = np.array([[0, 0, 0, 0, 0, 0],
+                         [0, 0, 0, 0, 0, 0],
+                         [1, 0, 0, 0, 0, 0],
+                         [0, 1, 0, 0, 0, 0],
+                         [0, 0, 0, 0, 0, 0],
+                         [0, 0, 0, 0, 0, 0],
+                         [0, 0, 1, 0, 0, 0],
+                         [0, 0, 0, 1, 0, 0],
+                         [0, 0, 0, 0, 0, 0],
+                         [0, 0, 0, 0, 0, 0],
+                         [0, 0, 0, 0, 1, 0],
+                         [0, 0, 0, 0, 0, 1]], dtype=float)
 
     print(" ****** define ha start ****** ")
     print(a_matrix, b_matrix)
@@ -56,16 +64,20 @@ def define_ha():
     mode = ha.new_mode('mode')
     mode.set_dynamics(a_csr)
 
-    b_mat = [[1], [1], [1], [1], [1], [1], [1], [1]]
-    b_constraints = [[1], [-1]]
-    b_rhs = [0.03, 0.03]
+    # b_mat = [[1], [1], [1], [1], [1], [1], [1], [1], [1], [1], [1], [1]]
+    # b_constraints = [[1], [-1]]
+    # b_rhs = [0.2, 0.2]
+
+    b_mat = [[1, 0], [1, 1], [0, 1], [1, 0], [1, 1], [0, 1], [0, 1], [1, 0], [1, 1], [0, 1], [0, 1], [1, 0]]
+    b_constraints = [[1, 0], [-1, 0], [0, 1], [0, -1]]
+    b_rhs = [0.1, 0.1, 0.1, 0.1]
 
     mode.set_inputs(b_mat, b_constraints, b_rhs, allow_constants=False)
 
     error = ha.new_mode('error')
 
     trans = ha.new_transition(mode, error)
-    trans.set_guard([[-1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], ], [-2.1, ])
+    trans.set_guard([[0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], ], [-3.0, ])
 
     print(" ****** define ha end ****** ")
 
@@ -76,7 +88,8 @@ def make_init(ha):
     '''returns list of initial states'''
 
     mode = ha.modes['mode']
-    init_lpi = lputil.from_box([[-0.1, 0.1], [19.9, 20.1], [0.9, 1.1], [-0.1, 0.1], [0.9, 1.1], [-0.1, 0.1], [0.9, 1.1], [-0.1, 0.1]], mode)
+    init_lpi = lputil.from_box([[-4.1, -3.9], [-4.1, -3.9], [-0.1, 0.1], [-0.1, 0.1], [-2.1, -1.9], [-4.1, -3.9], [-0.1, 0.1], [-0.1, 0.1],
+                                [1.9, 2.1], [-4.1, -3.9], [-0.1, 0.1], [-0.1, 0.1]], mode)
 
     init_list = [StateSet(init_lpi, mode)]
 
@@ -92,7 +105,7 @@ def define_settings():
 
     plot_settings = settings.plot
     plot_settings.plot_mode = PlotSettings.PLOT_IMAGE
-    plot_settings.xdim_dir = 0
+    plot_settings.xdim_dir = 1
     plot_settings.ydim_dir = 2
 
     # plot_settings.plot_mode = PlotSettings.PLOT_VIDEO
@@ -119,17 +132,17 @@ def run_hylaa():
     error_states = core.get_error_stars()  # error states are of type StarData
     print(" no of error states: " + str(len(error_states)))
     usafeset_preds = core.get_errorset_preds()
-    #
-    Timers.tic("BDD Construction")
-    process_stars(error_states)
 
-    bdd_ce_object = BDD4CE(error_states, usafeset_preds, equ_run=False, smt_mip='mip')
-    # #
-    bdd_graphs = bdd_ce_object.create_bdd_w_level_merge(level_merge=0, order='default')
-    valid_exps, invalid_exps = bdd_graphs[0].generate_expressions()
-    print(len(valid_exps), len(invalid_exps))
-    Timers.toc("BDD Construction")
-    Timers.print_stats()
+    # Timers.tic("BDD Construction")
+    # process_stars(error_states)
+    #
+    # bdd_ce_object = BDD4CE(error_states, usafeset_preds, equ_run=True, smt_mip='mip')
+    # # #
+    # bdd_graphs = bdd_ce_object.create_bdd_w_level_merge(level_merge=0, order='default')
+    # valid_exps, invalid_exps = bdd_graphs[0].generate_expressions()
+    # print(len(valid_exps), len(invalid_exps))
+    # Timers.toc("BDD Construction")
+    # Timers.print_stats()
 
 
 if __name__ == '__main__':

@@ -15,18 +15,13 @@ from farkas_central.control_utils import get_input
 def define_ha():
     '''make the hybrid automaton'''
 
-    a_matrix = np.array([[1, 0, 0.1, 0],
-                         [0, 1, 0, 0.1],
-                         [0, 0, 0.8870, 0.0089],
-                         [0, 0, 0.0089, 0.8870]], dtype=float)
+    a_matrix = np.array([[2.9589, -1.4589, 0.95887], [2, 0, 0], [0, 0.5, 1]], dtype=float)
 
-    b_matrix = np.array([[1, 0],
-                         [0, 0],
-                         [1, 0],
-                         [0, 1]], dtype=float)
+    b_matrix = np.array([[2], [0], [0]], dtype=float)
 
+    print(" ****** define ha start ****** ")
     print(a_matrix, b_matrix)
-    R_mult_factor = 0.1
+    R_mult_factor = 0.01
 
     Q_matrix = np.eye(len(a_matrix[0]), dtype=float)
 
@@ -47,16 +42,22 @@ def define_ha():
     mode = ha.new_mode('mode')
     mode.set_dynamics(a_csr)
 
-    b_mat = [[1, 0], [0, 2], [1, 0], [1, 1]]
+    b_mat = [[1, 1], [1, 1], [1, 1]]
     b_constraints = [[1, 0], [-1, 0], [0, 1], [0, -1]]
-    b_rhs = [0.02, 0.02, 0.02, 0.02]
+    b_rhs = [0.1, 0.1, 0.1, 0.1]
+
+    # b_mat = [[1], [1], [1]]
+    # b_constraints = [[1], [-1]]
+    # b_rhs = [0.1, 0.1]
+
     mode.set_inputs(b_mat, b_constraints, b_rhs, allow_constants=False)
 
     error = ha.new_mode('error')
 
     trans = ha.new_transition(mode, error)
-    # trans.set_guard([[1, 0, 0, 0], ], [-5.2, ])
-    trans.set_guard([[0, -1, 0, 0], ], [-1.75, ])
+    trans.set_guard([[1, 0, 0], ], [-10, ])
+
+    print(" ****** define ha end ****** ")
 
     return ha
 
@@ -65,7 +66,7 @@ def make_init(ha):
     '''returns list of initial states'''
 
     mode = ha.modes['mode']
-    init_lpi = lputil.from_box([[0.3, 0.7], [1.3, 1.7], [0, 0.4], [0, 0.4]], mode)
+    init_lpi = lputil.from_box([[0.9, 1.0], [0.9, 1.9], [0.9, 1.9]], mode)
 
     init_list = [StateSet(init_lpi, mode)]
 
@@ -75,13 +76,13 @@ def make_init(ha):
 def define_settings():
     'get the hylaa settings object'
 
-    step = 0.02
-    max_time = 2.0
+    step = 0.01
+    max_time = 1.0
     settings = HylaaSettings(step, max_time)
 
     plot_settings = settings.plot
     plot_settings.plot_mode = PlotSettings.PLOT_IMAGE
-    plot_settings.xdim_dir = 3
+    plot_settings.xdim_dir = 0
     plot_settings.ydim_dir = 1
 
     # plot_settings.plot_mode = PlotSettings.PLOT_VIDEO
@@ -112,9 +113,9 @@ def run_hylaa():
     Timers.tic("BDD Construction")
     process_stars(error_states)
 
-    bdd_ce_object = BDD4CE(error_states, usafeset_preds, equ_run=False, smt_mip='mip')
+    bdd_ce_object = BDD4CE(error_states, usafeset_preds, smt_mip='mip')
     # #
-    bdd_graphs = bdd_ce_object.create_bdd_w_level_merge(level_merge=0, order='default')
+    bdd_graphs = bdd_ce_object.create_bdd_w_level_merge(level_merge=0, order='random')
     valid_exps, invalid_exps = bdd_graphs[0].generate_expressions()
     print(len(valid_exps), len(invalid_exps))
     Timers.toc("BDD Construction")

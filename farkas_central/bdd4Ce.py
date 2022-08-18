@@ -31,8 +31,71 @@ def compute_usafe_set_pred_in_star_basis(error_star, usafeset_preds):
     return usafe_basis_predicates
 
 
+def check_equivalence_among_set(smt_mip, n_state_vars, poly1, node_set, q1_set, q2_set=None):
+    equivalent_node = None
+
+    if len(node_set) == 0:
+        return equivalent_node
+
+    print("no of nodes in the set " + str(len(node_set)))
+    for node2 in node_set:
+        print(node2.id)
+        z_vals = check_equivalence(smt_mip, n_state_vars, poly1, node2.polytope, q1_set, q2_set)
+        print(z_vals)
+        if not z_vals:
+            equivalent_node = node2
+            break
+
+    return equivalent_node
+
+
+def check_equivalence(smt_mip, n_state_vars, poly1, poly2, q1_set, q2_set=None):
+
+    # A non-empty return value means two polytopes are not equivalent
+    # if self.equ_run is False:
+    #     return [1]
+
+    if smt_mip == 'mip':
+        test_instance_1 = FarkasMIP(poly1, poly2, q1_set, n_state_vars)
+        test_instance_2 = FarkasMIP(poly2, poly1, q1_set, n_state_vars)
+        # test_instance_3 = FarkasMIP(poly2, poly1, q2_set, n_state_vars)
+        # test_instance_4 = FarkasMIP(poly1, poly2, q2_set, n_state_vars)
+    else:
+        test_instance_1 = FarkasSMT(poly1, poly2, q1_set, n_state_vars)
+        test_instance_2 = FarkasSMT(poly2, poly1, q1_set, n_state_vars)
+        # test_instance_3 = FarkasSMT(poly2, poly1, q2_set, n_state_vars)
+        # test_instance_4 = FarkasSMT(poly1, poly2, q2_set, n_state_vars)
+
+    z_vals, alpha_vals = test_instance_1.solve_4_both()
+
+    if not z_vals:
+        z_vals, alpha_vals = test_instance_2.solve_4_both()
+
+        # if not z_vals:
+        #     z_vals, alpha_vals = test_instance_3.solve_4_both()
+        #
+        #     if not z_vals:
+        #         z_vals, alpha_vals = test_instance_4.solve_4_both()
+        #
+        #         if z_vals:
+        #             print(" *** Tested instance 4 (p_prime, p_prime_prime, q2_set) **** " + str(z_vals))
+        #
+        #     else:
+        #         print(" *** Tested instance 3 (p_prime_prime, p_prime, q2_set) **** " + str(z_vals))
+        #
+        # else:
+        #     print(" *** Tested instance 2 (p_prime_prime, p_prime, q1_set) **** " + str(z_vals))
+        if z_vals:
+            print(" *** Tested instance 2 (p_prime_prime, p_prime, q1_set) **** " + str(z_vals))
+
+    else:
+        print(" *** Tested instance 1 (p_prime, p_prime_prime, q1_set) **** " + str(z_vals))
+
+    return z_vals
+
+
 class BDD4CE(object):
-    def __init__(self, error_states, usafe_set_preds, equ_run=True, smt_mip='mip'):
+    def __init__(self, error_states, usafe_set_preds, equ_run=False, smt_mip='mip'):
         self.error_states = error_states
         self.usafe_set = usafe_set_preds
         self.n_state_vars = 2
@@ -118,68 +181,13 @@ class BDD4CE(object):
     # z_vals, alpha_vals = test_instance_mip.solve_4_both_mip()
     # print(z_vals, alpha_vals)
 
-    def check_equivalence_among_set(self, poly1, node_set, q1_set, q2_set):
-        equivalent_node = None
-
-        if len(node_set) == 0:
-            return equivalent_node
-
-        print("no of nodes in the set " + str(len(node_set)))
-        for node2 in node_set:
-            print(node2.id)
-            z_vals = self.check_equivalence(poly1, node2.polytope, q1_set, q2_set)
-            print(z_vals)
-            if not z_vals:
-                equivalent_node = node2
-                break
-
-        return equivalent_node
-
-    def check_equivalence(self, poly1, poly2, q1_set, q2_set):
-
-        # A non-empty return value means two polytopes are not equivalent
-        if self.equ_run is False:
-            return [1]
-
-        if self.smt_mip == 'mip':
-            test_instance_1 = FarkasMIP(poly1, poly2, q1_set, self.n_state_vars)
-            test_instance_2 = FarkasMIP(poly2, poly1, q1_set, self.n_state_vars)
-            test_instance_3 = FarkasMIP(poly2, poly1, q2_set, self.n_state_vars)
-            test_instance_4 = FarkasMIP(poly1, poly2, q2_set, self.n_state_vars)
-        else:
-            test_instance_1 = FarkasSMT(poly1, poly2, q1_set, self.n_state_vars)
-            test_instance_2 = FarkasSMT(poly2, poly1, q1_set, self.n_state_vars)
-            test_instance_3 = FarkasSMT(poly2, poly1, q2_set, self.n_state_vars)
-            test_instance_4 = FarkasSMT(poly1, poly2, q2_set, self.n_state_vars)
-
-        z_vals, alpha_vals = test_instance_1.solve_4_both()
-
-        print(" *** Tested instance 1 **** ")
-
-        if not z_vals:
-            z_vals, alpha_vals = test_instance_2.solve_4_both()
-
-            print(" *** Tested instance 2 **** ")
-
-            if not z_vals:
-                z_vals, alpha_vals = test_instance_3.solve_4_both()
-
-                print(" *** Tested instance 3 **** ")
-
-                if not z_vals:
-                    z_vals, alpha_vals = test_instance_4.solve_4_both()
-
-                    print(" *** Tested instance 4 **** ")
-
-        return z_vals
-
     # Equivalence is checked between p and not p at each step. Additionally, the bdd is tested for equivalence
     # among all nodes at a user provided level.
     # level_merge = -1 means not to carry out level wise merging
     # level_merge = 0 denotes level merge at each level
     # level_merge = r > 0 depicts merging of nodes only at level r
     # @profile(precision=4)
-    def create_bdd_w_level_merge(self, level_merge=-1, order='default'):
+    def create_bdd_w_level_merge(self, level_merge=-1, order='default', bdd_f=None):
         nodes_count = []
         unique_states = []
         Timers.tic('BDD Construction New')
@@ -259,6 +267,7 @@ class BDD4CE(object):
                 not_p1 = p_intersect_not_u_in_path[current_level]
                 q1_set = p_intersect_u_in_path[(current_level+1):n_polytopes]
                 q2_set = p_intersect_not_u_in_path[(current_level+1):n_polytopes]
+                q1_set.extend(q2_set)
 
                 while queue_bdd_nodes:
                     current_node = queue_bdd_nodes.pop(0)
@@ -293,8 +302,8 @@ class BDD4CE(object):
 
                             equ_node = None
                             if level_merge == 0 or (current_level+1 == level_merge):
-                                equ_node = self.check_equivalence_among_set(p_intersect_p1, nodes_at_next_level,
-                                                                            q1_set, q2_set)
+                                equ_node = check_equivalence_among_set(self.smt_mip, self.n_state_vars, p_intersect_p1, nodes_at_next_level,
+                                                                            q1_set)
 
                             if equ_node is None:
                                 print(" equivalent node not found ")
@@ -321,8 +330,8 @@ class BDD4CE(object):
 
                             equ_node = None
                             if level_merge == 0 or (current_level+1 == level_merge):
-                                equ_node = self.check_equivalence_among_set(p_intersect_not_p1, nodes_at_next_level,
-                                                                                q1_set, q2_set)
+                                equ_node = check_equivalence_among_set(self.smt_mip, self.n_state_vars, p_intersect_not_p1, nodes_at_next_level,
+                                                                                q1_set)
 
                             if equ_node is None:
                                 print("equivalent node not found")
@@ -356,6 +365,9 @@ class BDD4CE(object):
             print(nodes_count, sum(nodes_count))
             print(self.order_idx)
             print(len(unique_states))
+            if bdd_f is not None:
+                bdd_f.write("\nNodes count: " + str(nodes_count))
+                bdd_f.write("\nTotal nodes:" + str(sum(nodes_count)))
             # print(unique_states)
 
             # print(r_idx)

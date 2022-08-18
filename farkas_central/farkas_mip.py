@@ -210,7 +210,7 @@ class FarkasMIP(FarkasObject):
         # epsilon = 0.000001
 
         # default
-        epsilon = 0.00001
+        epsilon = 0.0001
         # epsilon2 = 0.0005
 
         # b^T * y < 0

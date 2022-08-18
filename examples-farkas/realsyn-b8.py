@@ -10,36 +10,28 @@ from farkas_central.process_stars import process_stars
 from farkas_central.bdd4Ce import BDD4CE
 from hylaa.timerutil import Timers
 from farkas_central.control_utils import get_input
+import time
 
-
-def define_ha():
+def define_ha(input=None):
     '''make the hybrid automaton'''
 
-    a_matrix = np.array([[0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                         [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
-                         [0, 0, -1.2, 0.1, 0, 0, 0, 0, 0, 0, 0, 0],
-                         [0, 0, 0.1, -1.2, 0, 0, 0, 0, 0, 0, 0, 0],
-                         [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
-                         [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0],
-                         [0, 0, 0, 0, 0, 0, -1.2, 0.1, 0, 0, 0, 0],
-                         [0, 0, 0, 0, 0, 0, 0.1, -1.2, 0, 0, 0, 0],
-                         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
-                         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-                         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1.2, 0.1],
-                         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.1, -1.2]], dtype=float)
+    a_matrix = np.array([[0, 1, 0, 0, 0, 0, 0, 0],
+                         [0, 0, 0, 0, 0, 0, 0, 0],
+                         [0, 0, 0, 1, 0, 0, 0, 0],
+                         [0, 0, 0, 0, 0, 0, 0, 0],
+                         [0, 0, 0, 0, 0, 1, 0, 0],
+                         [0, 0, 0, 0, 0, 0, 0, 0],
+                         [0, 0, 0, 0, 0, 0, 0, 1],
+                         [0, 0, 0, 0, 0, 0, 0, 0]], dtype=float)
 
-    b_matrix = np.array([[0, 0, 0, 0, 0, 0],
-                         [0, 0, 0, 0, 0, 0],
-                         [1, 0, 0, 0, 0, 0],
-                         [0, 1, 0, 0, 0, 0],
-                         [0, 0, 0, 0, 0, 0],
-                         [0, 0, 0, 0, 0, 0],
-                         [0, 0, 1, 0, 0, 0],
-                         [0, 0, 0, 1, 0, 0],
-                         [0, 0, 0, 0, 0, 0],
-                         [0, 0, 0, 0, 0, 0],
-                         [0, 0, 0, 0, 1, 0],
-                         [0, 0, 0, 0, 0, 1]], dtype=float)
+    b_matrix = np.array([[0, 0, 0, 0],
+                         [1, 0, 0, 0],
+                         [0, 0, 0, 0],
+                         [1, -1, 0, 0],
+                         [0, 0, 0, 0],
+                         [0, 1, -1, 0],
+                         [0, 0, 0, 0],
+                         [0, 0, 1, -1]], dtype=float)
 
     print(" ****** define ha start ****** ")
     print(a_matrix, b_matrix)
@@ -64,20 +56,21 @@ def define_ha():
     mode = ha.new_mode('mode')
     mode.set_dynamics(a_csr)
 
-    # b_mat = [[1], [1], [1], [1], [1], [1], [1], [1], [1], [1], [1], [1]]
-    # b_constraints = [[1], [-1]]
-    # b_rhs = [0.2, 0.2]
-
-    # b_mat = [[1, 0], [1, 1], [0, 1], [1, 0], [1, 1], [0, 1], [0, 1], [1, 0], [1, 1], [0, 1], [0, 1], [1, 0]]
-    # b_constraints = [[1, 0], [-1, 0], [0, 1], [0, -1]]
-    # b_rhs = [0.1, 0.1, 0.1, 0.1]
-
-    # mode.set_inputs(b_mat, b_constraints, b_rhs, allow_constants=False)
+    if input is not None:
+        if input == 1:
+            b_mat = [[1], [1], [1], [1], [1], [1], [1], [1]]
+            b_constraints = [[1], [-1]]
+            b_rhs = [0.03, 0.03]  # Can change to 0.05
+        else:
+            b_mat = [[1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1]]
+            b_constraints = [[1, 0], [-1, 0], [0, 1], [0, -1]]
+            b_rhs = [0.04, 0.04, 0.04, 0.04]
+        mode.set_inputs(b_mat, b_constraints, b_rhs, allow_constants=False)
 
     error = ha.new_mode('error')
 
     trans = ha.new_transition(mode, error)
-    trans.set_guard([[0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], ], [-3.0, ])
+    trans.set_guard([[-1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], ], [-2.1, ])
 
     print(" ****** define ha end ****** ")
 
@@ -88,8 +81,7 @@ def make_init(ha):
     '''returns list of initial states'''
 
     mode = ha.modes['mode']
-    init_lpi = lputil.from_box([[-4.1, -3.9], [-4.1, -3.9], [-0.1, 0.1], [-0.1, 0.1], [-2.1, -1.9], [-4.1, -3.9], [-0.1, 0.1], [-0.1, 0.1],
-                                [1.9, 2.1], [-4.1, -3.9], [-0.1, 0.1], [-0.1, 0.1]], mode)
+    init_lpi = lputil.from_box([[-0.1, 0.1], [19.9, 20.1], [0.9, 1.1], [-0.1, 0.1], [0.9, 1.1], [-0.1, 0.1], [0.9, 1.1], [-0.1, 0.1]], mode)
 
     init_list = [StateSet(init_lpi, mode)]
 
@@ -100,12 +92,12 @@ def define_settings():
     'get the hylaa settings object'
 
     step = 0.02
-    max_time = 3.0
+    max_time = 2.0
     settings = HylaaSettings(step, max_time)
 
     plot_settings = settings.plot
     plot_settings.plot_mode = PlotSettings.PLOT_IMAGE
-    plot_settings.xdim_dir = 1
+    plot_settings.xdim_dir = 0
     plot_settings.ydim_dir = 2
 
     # plot_settings.plot_mode = PlotSettings.PLOT_VIDEO
@@ -121,10 +113,10 @@ def define_settings():
     return settings
 
 
-def run_hylaa():
+def run_hylaa(order=None, level_merge=None, bdd_f=None, input=None):
     'Runs hylaa with the given settings'
 
-    ha = define_ha()
+    ha = define_ha(input)
     settings = define_settings()
     init_states = make_init(ha)
     core = Core(ha, settings)
@@ -134,16 +126,32 @@ def run_hylaa():
     usafeset_preds = core.get_errorset_preds()
 
     Timers.tic("BDD Construction")
+    start_time = time.time()
     process_stars(error_states)
 
-    bdd_ce_object = BDD4CE(error_states, usafeset_preds, equ_run=True, smt_mip='mip')
+    bdd_ce_object = BDD4CE(error_states, usafeset_preds, smt_mip='mip')
     # #
-    bdd_graphs = bdd_ce_object.create_bdd_w_level_merge(level_merge=0, order='default')
+    bdd_graphs = bdd_ce_object.create_bdd_w_level_merge(level_merge=level_merge, order=order, bdd_f=bdd_f)
     valid_exps, invalid_exps = bdd_graphs[0].generate_expressions()
     print(len(valid_exps), len(invalid_exps))
     Timers.toc("BDD Construction")
     Timers.print_stats()
+    bdd_f.write("\nUnique states:" + str(len(valid_exps)))
+    bdd_f.write("\nTime taken: " + str(time.time() - start_time))
 
 
 if __name__ == '__main__':
-    run_hylaa()
+    bdd_f = open("b8-bdd.txt", "a+")
+    level_merges = [-1, 0]
+    orders = ['default', 'mid-order', 'random']
+    inputs = [2]
+
+    for input in inputs:
+        for order in orders:
+            for level in level_merges:
+                bdd_f.write("\ninput: " + str(input))
+                bdd_f.write("\norder: " + str(order))
+                bdd_f.write("\nlevel: " + str(level))
+                run_hylaa(order, level, bdd_f, input)
+    bdd_f.close()
+    # run_hylaa()
