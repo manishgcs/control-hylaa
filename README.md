@@ -49,6 +49,13 @@ pip3 install z3
 In order to compute complete characterization of counterexamples, you would need GUROBI (https://www.gurobi.com/). Once Gurobi is install,
 please update ./bashrc script. Add GUROBI_HOME to PATH variable and add GRB_LICENSE_FILE to the script. 
 
+```
+export GUROBI_HOME="$HOME/gurobi952/linux64"
+export GRB_LICENSE_FILE="$HOME/gurobi.lic"
+export PATH="${PATH}::${GUROBI_HOME}/bin"
+export PYTHONPATH="$HOME/control-hylaa/"
+```
+
 ### Getting Started + Example ###
 
 The easiest way to get started with Hylaa is to run some of the examples. Once installed and setup, Hylaa models are just python source files you directly with `python3` in a terminal.
