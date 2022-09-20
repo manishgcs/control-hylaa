@@ -11,11 +11,10 @@ from hylaa import lputil
 from farkas_central.process_stars import process_stars
 from farkas_central.bdd4Ce import BDD4CE
 from hylaa.timerutil import Timers
+import time
 
-''' Has one bounded input'''
 
-
-def define_ha():
+def define_ha(inp=0):
     '''make the hybrid automaton'''
 
     ha = HybridAutomaton(discrete=True)
@@ -26,15 +25,17 @@ def define_ha():
     mode = ha.new_mode('mode')
     mode.set_dynamics(a_csr)
 
-    # b_mat = [[0], [0.1], [0.1]]
-    # b_constraints = [[1], [-1]]
-    # b_rhs = [0.04, 0.04]
+    if inp > 0:
+        if inp == 1:
+            b_mat = [[0], [0.1], [0.1]]
+            b_constraints = [[1], [-1]]
+            b_rhs = [0.04, 0.04]
+        else:
+            b_mat = [[0.1, 0.1], [0.1, 0.1], [0.01, 0.1]]
+            b_constraints = [[1, 0], [-1, 0], [0, 1], [0, -1]]
+            b_rhs = [0.04, 0.04, 0.04, 0.04]
 
-    b_mat = [[0.1, 0.1], [0.1, 0.1], [0.01, 0.1]]
-    b_constraints = [[1, 0], [-1, 0], [0, 1], [0, -1]]
-    b_rhs = [0.04, 0.04, 0.04, 0.04]
-
-    mode.set_inputs(b_mat, b_constraints, b_rhs)
+        mode.set_inputs(b_mat, b_constraints, b_rhs)
 
     error = ha.new_mode('error')
 
@@ -82,7 +83,7 @@ def define_settings():
     return settings
 
 
-def run_hylaa():
+def run_hylaa(order=None, level_merge=None, bdd_f=None, inp=None):
     'Runs hylaa with the given settings'
 
     ha = define_ha()
@@ -128,16 +129,31 @@ def run_hylaa():
     usafeset_preds = core.get_errorset_preds()
 
     Timers.tic("BDD Construction")
+    start_time = time.time()
     process_stars(error_states)
 
     bdd_ce_object = BDD4CE(error_states, usafeset_preds, smt_mip='mip')
-    bdd_graphs = bdd_ce_object.create_bdd_w_level_merge(level_merge=0, order='default')
+    # #
+    bdd_graphs = bdd_ce_object.create_bdd_w_level_merge(level_merge=level_merge, order=order, bdd_f=bdd_f)
     valid_exps, invalid_exps = bdd_graphs[0].generate_expressions()
     print(len(valid_exps), len(invalid_exps))
-    # print(valid_exps)
     Timers.toc("BDD Construction")
     Timers.print_stats()
+    bdd_f.write("\nUnique states:" + str(len(valid_exps)))
+    bdd_f.write("\nTime taken: " + str(time.time() - start_time))
 
 
 if __name__ == '__main__':
-    run_hylaa()
+    level_merges = [-1, 0]
+    orders = ['default', 'mid-order', 'random']
+    inputs = [0, 1, 2]
+
+    for inp in inputs:
+        bdd_f = open("realsyn-b2-bdd-" + str(inp) + ".txt", "a+")
+        for order in orders:
+            for level in level_merges:
+                bdd_f.write("\ninput: " + str(inp))
+                bdd_f.write("\norder: " + str(order))
+                bdd_f.write("\nlevel: " + str(level))
+                run_hylaa(order, level, bdd_f, inp)
+        bdd_f.close()

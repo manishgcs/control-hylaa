@@ -12,7 +12,8 @@ from hylaa.timerutil import Timers
 from farkas_central.control_utils import get_input
 import time
 
-def define_ha(input=None):
+
+def define_ha(inp=0):
     '''make the hybrid automaton'''
 
     a_matrix = np.array([[0, 1, 0, 0, 0, 0, 0, 0],
@@ -56,11 +57,11 @@ def define_ha(input=None):
     mode = ha.new_mode('mode')
     mode.set_dynamics(a_csr)
 
-    if input is not None:
-        if input == 1:
+    if inp > 0:
+        if inp == 1:
             b_mat = [[1], [1], [1], [1], [1], [1], [1], [1]]
             b_constraints = [[1], [-1]]
-            b_rhs = [0.03, 0.03]  # Can change to 0.05
+            b_rhs = [0.03, 0.03]
         else:
             b_mat = [[1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1]]
             b_constraints = [[1, 0], [-1, 0], [0, 1], [0, -1]]
@@ -141,17 +142,16 @@ def run_hylaa(order=None, level_merge=None, bdd_f=None, input=None):
 
 
 if __name__ == '__main__':
-    bdd_f = open("b8-bdd.txt", "a+")
     level_merges = [-1, 0]
     orders = ['default', 'mid-order', 'random']
-    inputs = [2]
+    inputs = [0, 1, 2]
 
-    for input in inputs:
+    for inp in inputs:
+        bdd_f = open("realsyn-b8-bdd-" + str(inp) + ".txt", "a+")
         for order in orders:
             for level in level_merges:
                 bdd_f.write("\ninput: " + str(input))
                 bdd_f.write("\norder: " + str(order))
                 bdd_f.write("\nlevel: " + str(level))
                 run_hylaa(order, level, bdd_f, input)
-    bdd_f.close()
-    # run_hylaa()
+        bdd_f.close()

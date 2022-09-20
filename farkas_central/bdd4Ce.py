@@ -5,7 +5,7 @@ from farkas_central.polytope import Polytope
 from farkas_central.star_data import LinearPredicate
 from farkas_central.bddGraph import BDDGraphNode, BDDGraph
 from hylaa.timerutil import Timers
-from memory_profiler import profile
+# from memory_profiler import profile
 import random
 
 
@@ -41,7 +41,6 @@ def check_equivalence_among_set(smt_mip, n_state_vars, poly1, node_set, q1_set, 
     for node2 in node_set:
         print(node2.id)
         z_vals = check_equivalence(smt_mip, n_state_vars, poly1, node2.polytope, q1_set, q2_set)
-        print(z_vals)
         if not z_vals:
             equivalent_node = node2
             break
@@ -52,9 +51,6 @@ def check_equivalence_among_set(smt_mip, n_state_vars, poly1, node_set, q1_set, 
 def check_equivalence(smt_mip, n_state_vars, poly1, poly2, q1_set, q2_set=None):
 
     # A non-empty return value means two polytopes are not equivalent
-    # if self.equ_run is False:
-    #     return [1]
-
     if smt_mip == 'mip':
         test_instance_1 = FarkasMIP(poly1, poly2, q1_set, n_state_vars)
         test_instance_2 = FarkasMIP(poly2, poly1, q1_set, n_state_vars)
@@ -71,20 +67,6 @@ def check_equivalence(smt_mip, n_state_vars, poly1, poly2, q1_set, q2_set=None):
     if not z_vals:
         z_vals, alpha_vals = test_instance_2.solve_4_both()
 
-        # if not z_vals:
-        #     z_vals, alpha_vals = test_instance_3.solve_4_both()
-        #
-        #     if not z_vals:
-        #         z_vals, alpha_vals = test_instance_4.solve_4_both()
-        #
-        #         if z_vals:
-        #             print(" *** Tested instance 4 (p_prime, p_prime_prime, q2_set) **** " + str(z_vals))
-        #
-        #     else:
-        #         print(" *** Tested instance 3 (p_prime_prime, p_prime, q2_set) **** " + str(z_vals))
-        #
-        # else:
-        #     print(" *** Tested instance 2 (p_prime_prime, p_prime, q1_set) **** " + str(z_vals))
         if z_vals:
             print(" *** Tested instance 2 (p_prime_prime, p_prime, q1_set) **** " + str(z_vals))
 
@@ -95,14 +77,13 @@ def check_equivalence(smt_mip, n_state_vars, poly1, poly2, q1_set, q2_set=None):
 
 
 class BDD4CE(object):
-    def __init__(self, error_states, usafe_set_preds, equ_run=False, smt_mip='mip'):
+    def __init__(self, error_states, usafe_set_preds, smt_mip='mip'):
         self.error_states = error_states
         self.usafe_set = usafe_set_preds
         self.n_state_vars = 2
         self.n_paths = 1  # don't need it unless we extend it to hybrid systems
         self.p_intersect_u = []
         self.p_intersect_not_u = []
-        self.equ_run = equ_run
         self.order_idx = []
         self.smt_mip = smt_mip
 
@@ -307,7 +288,7 @@ class BDD4CE(object):
 
                             if equ_node is None:
                                 print(" equivalent node not found ")
-                                node_id = str(current_level + 1) + str(n_nodes_at_next_level)
+                                node_id = str(current_level + 1) + "-" + str(n_nodes_at_next_level)
                                 n_nodes_at_next_level = n_nodes_at_next_level + 1
                                 bdd_node = BDDGraphNode(node_id=node_id, level=current_level + 1,
                                                         my_regex=current_node_regex + '1', poly=p_intersect_p1)
@@ -335,7 +316,7 @@ class BDD4CE(object):
 
                             if equ_node is None:
                                 print("equivalent node not found")
-                                node_id = str(current_level + 1) + str(n_nodes_at_next_level)
+                                node_id = str(current_level + 1) + "-" + str(n_nodes_at_next_level)
                                 n_nodes_at_next_level = n_nodes_at_next_level + 1
                                 bdd_node = BDDGraphNode(node_id=node_id, level=current_level + 1,
                                                         my_regex=current_node_regex + '0', poly=p_intersect_not_p1)
